@@ -1,0 +1,49 @@
+# ---- Rust / Cargo ----
+target/
+**/*.rs.bk
+*.pdb
+
+# ---- Solana / Anchor / Arcium build artifacts ----
+.anchor/
+test-ledger/
+.arcium/
+artifacts/
+*.so
+**/*-keypair.json
+keypairs/
+
+# ---- Node / JavaScript ----
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# ---- Next.js ----
+.next/
+out/
+build/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Logs ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Editor / OS ----
+.DS_Store
+.idea/
+.vscode/
+.zed/
+.fleet/
+*.iml
+*.swp
+*~

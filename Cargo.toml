@@ -1,0 +1,35 @@
+[workspace]
+# `members` (NOT `member`) is the valid key. mpc-core / mm-gateway are intentionally
+# excluded from the build until their implementation pass — their interface boundary
+# (the `protocol` crate) is frozen now, so re-adding them later is drift-free.
+members = [
+    "protocol",
+    "program",
+]
+exclude = [
+    "mpc-core",
+    "mm-gateway",
+    # The real Arcium project (circuits + MXE gateway) — built by `arcium build`, not cargo.
+    "shadowstate_mxe",
+]
+resolver = "3"
+
+[workspace.package]
+# NOTE: `name` is per-crate and is NOT an inheritable workspace field — it lived here
+# before and was silently ignored. Only inheritable fields belong under workspace.package.
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+# Single source of truth for versions inherited by workspace MEMBERS via `dep = { workspace = true }`.
+# (Excluded crates — mpc-core, mm-gateway — and dev-only test deps pin their own versions directly,
+# since excluded packages cannot inherit from the workspace.) All versions verified on crates.io.
+[workspace.dependencies]
+# --- on-chain (program/) : pure Pinocchio, no Anchor, no solana-program ---
+pinocchio = { version = "0.11.1", default-features = false, features = ["cpi"] }
+pinocchio-system = "0.6.1"
+pinocchio-token-2022 = "0.3.1"        # official anza-xyz crate; TransferChecked builder
+bytemuck = { version = "1.25.0", features = ["derive"] }
+
+# --- shared interface boundary (imported in code as `protocol`) ---
+protocol = { path = "protocol", package = "shadowstate-protocol" }
