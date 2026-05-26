@@ -1,0 +1,12 @@
+[package]
+name = "shadowstate-protocol"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+description = "Frozen wire contract shared by the ShadowState on-chain program and the off-chain MPC engine."
+
+[lib]
+name = "shadowstate_protocol"
+
+[dependencies]
+bytemuck = { workspace = true }

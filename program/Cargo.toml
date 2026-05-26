@@ -1,0 +1,47 @@
+[package]
+name = "shadowstate-program"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+description = "ShadowState confidential prediction-market settlement engine (pure Pinocchio, no_std)."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+pinocchio = { workspace = true }
+pinocchio-system = { workspace = true }
+pinocchio-token-2022 = { workspace = true }
+bytemuck = { workspace = true }
+protocol = { workspace = true }
+
+[dev-dependencies]
+# Granular solana crates (all keyed on the unified `solana_address::Address`, so they interop
+# with litesvm and spl-token-2022 with no second `Pubkey` type). `precompiles` enables the
+# Ed25519 precompile that our committee verification depends on.
+litesvm = { version = "0.12.0", features = ["precompiles"] }
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+solana-account = "3.4.0"
+solana-instruction = "3.4.0"
+solana-keypair = "3.1.2"
+solana-signer = "3.0.0"
+solana-transaction = "3.1.0"
+ed25519-dalek = "2.2.0"
+bytemuck = { workspace = true }
+protocol = { workspace = true }
+
+# On the SBF target, `Address::find_program_address` uses syscalls (via pinocchio's `syscalls`
+# feature). On the host (cargo test / cdylib), those fns are gated behind solana-address's
+# `curve25519` feature, so pull it in for non-solana targets only — keeping curve25519-dalek out
+# of the on-chain binary.
+[target.'cfg(not(target_os = "solana"))'.dependencies]
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+
+[features]
+# Off by default: gates verbose `solana-program-log` lines out of the compute hot path.
+default = []
+logging = []
+
+[lints.rust]
+# `target_os = "solana"` is a real cfg under `cargo build-sbf`; tell the host check-cfg lint.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
