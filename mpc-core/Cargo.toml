@@ -1,0 +1,62 @@
+# ShadowState off-chain Arcium MPC engine.
+#
+# DEPENDENCY POLICY (mirrors the on-chain pass): every dep is pinned and vetted. We deliberately
+# DO NOT depend on `arcium-client`:
+#   1. Its default feature set is `transactions`, which pulls in `anchor-client` + `anchor-spl` —
+#      a direct violation of the workspace's absolute "No Anchor" law.
+#   2. It is GPL-3.0-or-later; linking it into this MIT crate would virally relicense the binary.
+#   3. It requires a live deployed MXE cluster + a compiled Arcis circuit to do anything, so it
+#      cannot be part of a self-contained, offline-testable crate.
+# Instead we implement the MXE's computation natively and faithfully: real x25519+ChaCha20Poly1305
+# order sealing, an additive secret-sharing executor across an N-node matrix (the primitive
+# Cerberus uses — plaintext order sizes/identities never leave the share domain), private P2P
+# matching, residual calc, threshold Ed25519 committee signing, and a SubmitBatch transaction the
+# on-chain Pinocchio program accepts byte-for-byte.
+#
+# Excluded from the workspace `members` (see root Cargo.toml) to keep the on-chain program's
+# verified Cargo.lock untouched; built/tested standalone via `--manifest-path mpc-core/Cargo.toml`.
+[package]
+name = "shadowstate-mpc"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "ShadowState off-chain Arcium-MXE-model engine: x25519-sealed order ingestion, additive-secret-share aggregation, private P2P matching, threshold-signed batch frames."
+
+[dependencies]
+# Async ingestion loop (1200ms FBA tick via tokio::time::interval).
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "time", "sync"] }
+# Committee threshold signing of the batch frame (Ed25519, verified on-chain via the precompile).
+ed25519-dalek = "2.2.0"
+# Client-side order sealing: x25519 ECDH to the cluster key.
+x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
+# Authenticated encryption of the sealed order payload.
+chacha20poly1305 = "0.10.1"
+# RNG for ephemeral sealing keys + share blinding (production path; tests use deterministic seeds).
+rand = "0.8.6"
+# Frozen wire contract shared with the on-chain program (BatchHeader / UserFill / constants).
+protocol = { path = "../protocol", package = "shadowstate-protocol" }
+bytemuck = { version = "1.25.0", features = ["derive"] }
+# Solana transaction assembly for the SubmitBatch relay. Granular crates only — NO `solana-sdk`,
+# NO Anchor. These unify on `solana-address::Address` exactly as the on-chain test harness does.
+solana-instruction = "3.4.0"
+# `curve25519` enables on-host `find_program_address` (PDA derivation for the relay).
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+solana-keypair = "3.1.2"
+solana-signer = "3.0.0"
+# `bincode` enables `Transaction::new_signed_with_payer` (message serialization for signing).
+solana-transaction = { version = "3.1.0", features = ["bincode"] }
+# Must match the `solana-hash` re-exported by solana-transaction 3.1.0 (blockhash type unify).
+solana-hash = "4.3.0"
+
+[dev-dependencies]
+# `test-util` enables tokio's paused clock so the 1200ms FBA loop is tested deterministically
+# without real wall-clock waits.
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "time", "sync", "test-util"] }
+# Integration tests under tests/ are separate crates: they see only the lib + dev-deps, so the
+# crates they name directly must be declared here too (cargo unifies these with the deps above).
+protocol = { path = "../protocol", package = "shadowstate-protocol" }
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+solana-keypair = "3.1.2"
+solana-signer = "3.0.0"
+solana-hash = "4.3.0"
+x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
