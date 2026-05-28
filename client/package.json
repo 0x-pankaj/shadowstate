@@ -1,0 +1,18 @@
+{
+  "name": "shadowstate-client",
+  "version": "0.1.0",
+  "description": "ShadowState confidential order client — seals orders (Arcium RescueCipher) and submits them to the MXE gateway's ingest_order.",
+  "license": "MIT",
+  "type": "module",
+  "main": "shadowstate-client.ts",
+  "dependencies": {
+    "@arcium-hq/client": "0.6.3",
+    "@coral-xyz/anchor": "0.32.1",
+    "@solana/web3.js": "^1.95.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}

@@ -1,0 +1,53 @@
+# ShadowState institutional liquidity gateway.
+#
+# DEPENDENCY POLICY (mirrors mpc-core): lean + pinned. We DROP `solana-client` — its full RPC stack
+# is a heavy tree we don't need: the on-chain `UpdateRiskParams` transaction is built from the
+# granular crates and broadcast through a minimal JSON-RPC submitter over the `reqwest` client we
+# already pull for venue orders. Network adapters (WS event stream, HTTP venue, RPC submit) sit
+# behind traits so the hedging / risk logic is fully unit-tested offline.
+#
+# Excluded from the workspace `members` (see root Cargo.toml); built/tested standalone via
+# `--manifest-path mm-gateway/Cargo.toml`, keeping the on-chain program's verified lock untouched.
+[package]
+name = "shadowstate-mm-gateway"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "ShadowState institutional liquidity gateway: Arcium WS event ingestion, delta-hedging across lit venues, and on-chain risk-param retuning."
+
+[dependencies]
+# Async runtime for the ingestion/hedging worker.
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "time", "sync"] }
+# WebSocket worker hooked into Arcium network log streams (rustls for wss, webpki roots).
+tokio-tungstenite = { version = "0.29.0", features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+# Stream/Sink combinators for the WS worker.
+futures-util = { version = "0.3.31", default-features = false, features = ["std", "sink"] }
+# Programmatic API orders to external lit venues + the minimal Solana JSON-RPC submitter (rustls).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# base64 encoding of the serialized transaction for JSON-RPC `sendTransaction`.
+base64 = "0.22.1"
+# bincode wire-serialization of the transaction (solana's tx wire format).
+bincode = "1.3.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Frozen wire contract shared with the on-chain program (BatchHeader / constants / ids).
+protocol = { path = "../protocol", package = "shadowstate-protocol" }
+# Granular Solana crates for building + signing the UpdateRiskParams transaction. No solana-client,
+# no Anchor. These unify on `solana-address::Address`.
+solana-instruction = "3.4.0"
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+solana-keypair = "3.1.2"
+solana-signer = "3.0.0"
+solana-transaction = { version = "3.1.0", features = ["bincode"] }
+solana-hash = "4.3.0"
+
+[dev-dependencies]
+tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "time", "sync", "test-util"] }
+# Tests build frame bytes for events directly via bytemuck.
+bytemuck = { version = "1.25.0", features = ["derive"] }
+# Integration tests under tests/ are separate crates (lib + dev-deps only); declare what they name.
+protocol = { path = "../protocol", package = "shadowstate-protocol" }
+solana-address = { version = "2.6.0", features = ["curve25519"] }
+solana-keypair = "3.1.2"
+solana-signer = "3.0.0"
+solana-hash = "4.3.0"
