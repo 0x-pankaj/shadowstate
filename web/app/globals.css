@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg, #0a0b10);
+  color: #e8eaf0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-image:
+    radial-gradient(900px 500px at 12% -8%, rgba(124, 108, 255, 0.16), transparent 60%),
+    radial-gradient(800px 500px at 92% 0%, rgba(70, 230, 200, 0.1), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Wallet-adapter button → match the brand. */
+.wallet-adapter-button {
+  background: linear-gradient(135deg, #7c6cff, #46e6c8) !important;
+  color: #0a0b10 !important;
+  font-weight: 700 !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  padding: 0 16px !important;
+  font-family: inherit !important;
+  transition: filter 0.15s ease;
+}
+.wallet-adapter-button:not([disabled]):hover {
+  filter: brightness(1.08);
+}
+.wallet-adapter-button-trigger {
+  background: linear-gradient(135deg, #7c6cff, #46e6c8) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: #12141d !important;
+}
+.wallet-adapter-modal-title {
+  color: #e8eaf0 !important;
+}
+.wallet-adapter-dropdown-list {
+  background: #12141d !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Thin custom scrollbar. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(124, 108, 255, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(124, 108, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 108, 255, 0);
+  }
+}
+.live-dot {
+  animation: pulse-ring 2s infinite;
+}

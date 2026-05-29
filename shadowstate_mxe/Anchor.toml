@@ -1,0 +1,26 @@
+[toolchain]
+package_manager = "yarn"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+shadowstate_mxe = "E3GFUytcsMFgYgwTrHoob1YvhB4UvqTzj4bFWzE5dNXe"
+
+[programs.devnet]
+shadowstate_mxe = "E3GFUytcsMFgYgwTrHoob1YvhB4UvqTzj4bFWzE5dNXe"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 3600000 \"tests/**/*.ts\""
+
+[test.validator]
+startup_wait = 90000
+bind_address = "127.0.0.1"
