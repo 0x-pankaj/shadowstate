@@ -45,6 +45,25 @@ async function main() {
   );
 
   console.log("\n✅ Test USDC mint created:", mint.toBase58());
+
+  // The faucet is self-signing: it pays fees + ATA rent for every in-app mint, so seed it with
+  // a little devnet SOL now. (Top up later any time with `node scripts/fund-faucet.mjs`.)
+  const SEED_LAMPORTS = 0.2 * 1e9;
+  try {
+    const { SystemProgram, Transaction, sendAndConfirmTransaction } = await import("@solana/web3.js");
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: faucetAuthority.publicKey,
+        lamports: SEED_LAMPORTS,
+      })
+    );
+    const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
+    console.log(`✅ Funded faucet authority with 0.2 SOL (sig ${sig})`);
+  } catch (e) {
+    console.log(`⚠️  Could not fund faucet authority (${e.message}). Run scripts/fund-faucet.mjs once you have devnet SOL.`);
+  }
+
   console.log("\n── paste into web/.env.local ──────────────────────────────");
   console.log(`NEXT_PUBLIC_FAUCET_MINT=${mint.toBase58()}`);
   console.log(`NEXT_PUBLIC_FAUCET_AUTHORITY_SECRET=[${faucetAuthority.secretKey.toString()}]`);
