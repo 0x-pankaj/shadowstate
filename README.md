@@ -82,6 +82,19 @@ internally consistent end-to-end. Both contracts are **deployed on devnet**; the
 
 ## Architecture
 
+ShadowState is a **three-layer system**. Each layer has one job, and the boundaries are where the
+trust model changes — confidential → deterministic → on-chain.
+
+| # | Layer | Crate / where | Responsibility | Trust anchor |
+|---|---|---|---|---|
+| **1** | **Confidential circuit layer** (Arcium MXE) | `shadowstate_mxe/encrypted-ixs/` — 3 Arcis circuits | Encrypts orders, **matches them over MPC secret shares** inside the Arcium MXE, reveals **only** the cleared aggregate. `init_book` opens the encrypted book · `ingest_order` folds in a sealed order · `clear_batch` runs the auction. | Cerberus MPC — no single node sees an order |
+| **2** | **Coordination / relayer layer** | `mpc-core/` (+ `mm-gateway/`) | Listens for `BatchCleared`, **re-derives per-user fills** deterministically (two-tier), builds the `protocol` frame, and submits it. `mm-gateway` delta-hedges the MM's residual onto external venues. | Deterministic & verifiable against the revealed clearing |
+| **3** | **On-chain settlement layer** (Pinocchio) | `program/` | Verifies the batch authority, runs **Tier-1 P2P + Tier-2 MM** clearing, mutates the zero-copy position ledger, moves **Token-2022** collateral — atomically per batch. | Solana consensus + the gateway/committee attestation |
+
+> **The Arcium circuit layer (Layer 1) is where the privacy lives** — it is the confidential matching
+> engine, distinct from the on-chain settlement program. Orders only ever exist in the clear *after*
+> Layer 1 hands a result down.
+
 ```
             ┌─────────────────────────── off-chain ───────────────────────────┐
  client     │   Arcium MXE  (3 Arcis circuits)            mm-gateway           │
