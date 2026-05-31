@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MarketEntry } from "@/lib/discover";
 import { OUTCOME, STATUS, SCALE } from "@/lib/constants";
 import { qty, short } from "@/lib/format";
-import { marketLabel } from "@/lib/markets";
+import { useMarketMeta } from "@/lib/meta";
 import { Badge } from "./ui";
 
 function statusBadge(outcome: number, status: number) {
@@ -28,7 +28,7 @@ function statusBadge(outcome: number, status: number) {
 
 export function MarketListCard({ entry }: { entry: MarketEntry }) {
   const { address, market } = entry;
-  const label = marketLabel(address);
+  const label = useMarketMeta().getLabel(address);
   const yesProb = Number(market.baseOraclePrice) / SCALE;
   const title = label?.title ?? `Market ${short(address, 5)}`;
 

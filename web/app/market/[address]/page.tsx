@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMarket } from "@/lib/useMarket";
-import { marketLabel } from "@/lib/markets";
+import { useMarketMeta } from "@/lib/meta";
 import { Header } from "@/components/Header";
 import { MarketCard } from "@/components/MarketCard";
 import { Portfolio } from "@/components/Portfolio";
@@ -15,7 +15,7 @@ import { Spinner } from "@/components/ui";
 export default function MarketDetail({ params }: { params: { address: string } }) {
   const address = decodeURIComponent(params.address);
   const s = useMarket(address);
-  const label = marketLabel(address);
+  const label = useMarketMeta().getLabel(address);
 
   return (
     <main className="min-h-screen">

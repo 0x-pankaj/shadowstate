@@ -1,6 +1,6 @@
 import { PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { IX, SETTLEMENT_PROGRAM_ID, TOKEN_2022 } from "./constants";
-import { marketPda, positionPda, vaultAuthorityPda } from "./pdas";
+import { committeePda, marketPda, positionPda, vaultAuthorityPda } from "./pdas";
 
 const m = (pubkey: PublicKey, isSigner: boolean, isWritable: boolean) => ({ pubkey, isSigner, isWritable });
 const u64le = (v: bigint) => {
@@ -8,6 +8,54 @@ const u64le = (v: bigint) => {
   b.writeBigUInt64LE(v);
   return b;
 };
+
+/**
+ * `InitializeMarket` — create the `MarketState` + immutable `Committee` PDAs.
+ * Accounts: payer(s,w), authority(s), mint, vault, mmAccount, market(w), committee(w), system.
+ * Data: base_oracle_price | max_skew_premium | imbalance_threshold | count | threshold | members[..] | [settlement_authority].
+ * The `vault`/`mmAccount` Token-2022 accounts must already exist (vault owner == vault PDA).
+ */
+export function ixInitializeMarket(
+  payer: PublicKey,
+  authority: PublicKey,
+  mint: PublicKey,
+  vault: PublicKey,
+  mmAccount: PublicKey,
+  p: {
+    baseOraclePrice: bigint;
+    maxSkewPremium: bigint;
+    imbalanceThreshold: bigint;
+    members: PublicKey[];
+    threshold: number;
+    settlementAuthority?: PublicKey;
+  }
+): TransactionInstruction {
+  const market = marketPda(authority);
+  const parts: Buffer[] = [
+    Buffer.from([IX.INITIALIZE_MARKET]),
+    u64le(p.baseOraclePrice),
+    u64le(p.maxSkewPremium),
+    u64le(p.imbalanceThreshold),
+    Buffer.from([p.members.length]),
+    Buffer.from([p.threshold]),
+    ...p.members.map((k) => Buffer.from(k.toBuffer())),
+  ];
+  if (p.settlementAuthority) parts.push(Buffer.from(p.settlementAuthority.toBuffer()));
+  return new TransactionInstruction({
+    programId: SETTLEMENT_PROGRAM_ID,
+    keys: [
+      m(payer, true, true),
+      m(authority, true, false),
+      m(mint, false, false),
+      m(vault, false, false),
+      m(mmAccount, false, false),
+      m(market, false, true),
+      m(committeePda(market), false, true),
+      m(SystemProgram.programId, false, false),
+    ],
+    data: Buffer.concat(parts),
+  });
+}
 
 /** `InitUserPosition` — create the user's per-market position PDA. */
 export function ixInitPosition(payer: PublicKey, owner: PublicKey, market: PublicKey): TransactionInstruction {

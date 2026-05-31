@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMarkets } from "@/lib/useMarkets";
 import { Header } from "@/components/Header";
 import { MarketListCard } from "@/components/MarketListCard";
@@ -35,7 +36,15 @@ export default function Page() {
           <HomeFunds />
         </div>
 
-        <h2 className="mb-3 text-sm font-semibold tracking-wide text-ink">Markets</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold tracking-wide text-ink">Markets</h2>
+          <Link
+            href="/create"
+            className="rounded-lg bg-brand-grad px-3 py-1.5 text-xs font-semibold text-bg hover:brightness-110"
+          >
+            + Create market
+          </Link>
+        </div>
 
         {error && !loading && markets.length === 0 && (
           <div className="rounded-2xl border border-no/40 bg-no/10 px-5 py-4 text-sm text-no">{error}</div>

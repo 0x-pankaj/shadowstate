@@ -10,7 +10,7 @@ import { ixClaim } from "@/lib/ix";
 import { userAta, maybeCreateAta } from "@/lib/token";
 import { usd, qty, short } from "@/lib/format";
 import { sendIxs, explorerTx } from "@/lib/tx";
-import { marketLabel } from "@/lib/markets";
+import { useMarketMeta } from "@/lib/meta";
 import { Button, Badge } from "./ui";
 import { useToast } from "./Toast";
 
@@ -27,7 +27,7 @@ export function PortfolioRow({ holding, onChange }: { holding: Holding; onChange
   const [busy, setBusy] = useState(false);
 
   const { market, position, address, marketKey, resolved, claimable } = holding;
-  const label = marketLabel(address);
+  const label = useMarketMeta().getLabel(address);
   const title = label?.title ?? `Market ${short(address, 5)}`;
 
   async function claim() {
