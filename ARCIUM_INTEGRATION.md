@@ -5,8 +5,8 @@ This document is the bridge from "tested locally" to "confidential on devnet." I
 and the recommended resolution, and the exact CLI/devnet workflow. The hands-on runbook is in
 [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
-> Reference: the project's `.agents/skills/arcium-dev` skill (Arcium **0.6.3**, Cerberus MPC,
-> validated on devnet). All API specifics below come from there.
+> Reference: the Arcium dev toolchain (Arcium **0.10.4**, Cerberus MPC, validated on devnet). All API
+> specifics below track that toolchain.
 
 ---
 
@@ -100,19 +100,19 @@ Its sealing/matching/relay code is directly reusable.
 
 ---
 
-## 4. Devnet workflow (from the arcium-dev skill)
+## 4. Devnet workflow (Arcium toolchain)
 
 Everything runs inside the Arcium Docker toolchain (Ubuntu 24.04 + Rust 1.89 + Solana 2.3.0 + Anchor
-0.32.1 + `arcium` 0.6.3). Full Dockerfile is in `.agents/skills/arcium-dev/cli-deployment.md`.
+0.32.1 + `arcium` 0.10.4). See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the container setup.
 
 ```bash
 # 1. Compile circuits + gateway program + IDL
 arcium build
 
-# 2. Host compiled circuits off-chain
-cp build/*.arcis  /path/to/circuits-repo/ && (cd /path/to/circuits-repo && git add . && git commit -m circuits && git push)
+# 2. In 0.10.4 circuits are uploaded ON-CHAIN (no off-chain repo) — done once via uploadCircuit.
+#    This burst is what a free RPC rate-limits; use a paid endpoint or the Arcium localnet.
 
-# 3. Deploy program + initialize the MXE on devnet (cluster offset 456, per the skill)
+# 3. Deploy program + initialize the MXE on devnet (cluster offset 456)
 arcium deploy \
   --cluster-offset 456 --recovery-set-size 4 \
   --keypair-path /root/.config/solana/id.json --rpc-url devnet \

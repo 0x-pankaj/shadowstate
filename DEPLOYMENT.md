@@ -1,16 +1,26 @@
-# ShadowState — devnet deployment runbook (the real product)
+# ShadowState — devnet deployment runbook
 
-This is the operational path from "110 tests green locally" to a **live confidential market on devnet**
-where the flow you described actually happens:
+The operational path from "108 tests green locally" to a **live confidential market on devnet**, where
+the core flow actually happens:
 
 > A user places an order. It's confidential. If another user has the opposite side, they're matched
 > peer-to-peer; otherwise the market maker fills the remainder — **without revealing any order to the
 > world** until the batch clears.
 
-That flow is exactly what we built. What remains is **compiling the Arcium pieces and wiring the
-operational services** — none of which can run in the local sandbox (no Docker / Arcium CLI /
-cluster). It runs on **your** machine. Below is precisely what you do, what I need from you, and the
-tight loop we use to make it work.
+Both on-chain programs are **already deployed to devnet**. What remains is the one-time **circuit
+upload** and the **relayer service** that drives the confidential loop. The Arcium toolchain steps
+require Docker + the `arcium` CLI + a funded devnet keypair.
+
+---
+
+## Deployed on devnet
+
+| Program | Role | ID |
+|---|---|---|
+| **Settlement engine** (`program/`, Pinocchio) | Collateral, positions, payout | `FP8riDGv8jrif5G8QfprfzPeNR8kQ3UUrpTp6EXByDVZ` |
+| **Arcium MXE gateway** (`shadowstate_mxe/`, Anchor) | Sealed ingestion + confidential clearing | `E3GFUytcsMFgYgwTrHoob1YvhB4UvqTzj4bFWzE5dNXe` |
+
+Cluster: devnet offset **456**. Arcium CLI: **0.10.4**.
 
 ---
 
@@ -19,53 +29,40 @@ tight loop we use to make it work.
 | Step | Component | Status |
 |---|---|---|
 | User deposits test-USDC collateral | `program/` `InitUserPosition` + `DepositCollateral` | ✅ on-chain, tested |
-| User places a **sealed** order (side+size hidden) | `shadowstate_mxe/tests` (TS) → gateway `ingest_order` → MXE encrypted book | ✅ built |
+| User places a **sealed** order (side+size hidden) | `client/` → gateway `ingest_order` → MXE encrypted book | ✅ built |
 | Orders accumulate **encrypted** (nobody sees them) | `shadowstate_mxe/encrypted-ixs/ingest_order` (Arcis, Cerberus MPC) | ✅ compiled |
 | Batch closes (~1.2 s) → P2P match, else MM backstop | `shadowstate_mxe/encrypted-ixs/clear_batch` reveals only the cleared result | ✅ compiled |
-| Relayer settles on-chain | `mpc-core::relayer` → `SubmitBatchTrusted` | ✅ lib tested; **service not built** |
+| Relayer settles on-chain | `mpc-core::relayer` → `SubmitBatchTrusted` | ✅ lib tested; **service not yet built** |
 | MM backstops the residual, fully collateralized | `DepositMmCollateral` + reservation in `submit_batch` | ✅ tested |
 | Close → resolve → users claim $1/contract | `CloseMarket` / `ResolveMarket` / `ClaimWinnings` | ✅ tested |
 
-**The confidentiality is real on devnet:** Arcium's ARX nodes run the matching over secret shares —
-no single node (or the relayer, or other traders) sees an order until `clear_batch`. After clearing,
-fills are public on-chain (the "positions public" model you chose) — the hidden part is the *order book
-during the auction*, which is what defeats front-running.
+**The confidentiality is real on devnet:** Arcium's ARX nodes run the matching over secret shares — no
+single node (or the relayer, or other traders) sees an order until `clear_batch`. After clearing, fills
+are public on-chain (the "positions public" model) — the hidden part is the *order book during the
+auction*, which is what defeats front-running.
 
 ---
 
-## What YOU do on Arcium (and what I need from you)
+## Prerequisites
 
-### You provide / set up
-1. **A Linux or macOS machine with Docker** — the Arcium toolchain runs only in its Docker image.
-   (This is the one thing the sandbox here cannot do.)
-2. **Arcium devnet access** — Arcium's devnet is early/permissioned. Check the current onboarding at
-   [arcium.com](https://arcium.com) / their Discord (the `arcium-dev` skill targets **CLI 0.6.3,
-   devnet cluster offset 456**). Confirm: (a) the CLI version, (b) the devnet cluster offset, (c) whether
-   you need to request access. **→ Tell me the version + cluster offset they give you** so I pin the
-   manifests correctly.
-3. **A funded Solana devnet keypair** — `solana-keygen new` + `solana airdrop 5 --url devnet`. I never
-   need the secret; just confirm it's funded.
-4. **A public GitHub repo** for the compiled circuits (`.arcis` files) — Arcium fetches them at compute
-   time. **→ Give me the raw URL** so I set `CIRCUITS_BASE_URL` in the gateway.
-
-### What I need back from you (the loop)
-The Arcium toolchain *generates* IDL/descriptors that I can't see from here. So after each step, **paste
-me the output** — especially:
-- `arcium build` output + the generated `target/idl/*.json` and `build/*.idarc` (these resolve every
-  `// RECONCILE:` markers — already reconciled in `shadowstate_mxe/programs/shadowstate_mxe/src/lib.rs`).
-- Any deploy errors, and the deployed **program IDs**.
-- The first `arcium test` run's failures.
-
-I fix against the real descriptors and hand you the next patch. That's how we get it actually working.
+1. **A Linux/macOS machine with Docker** — the Arcium toolchain runs inside its Docker image. (This is
+   the one thing a no-Docker sandbox cannot do.)
+2. **Arcium devnet access** — Arcium's devnet is early/permissioned. Confirm the current CLI version,
+   the devnet cluster offset (this project targets **0.10.4 / offset 456**), and whether access must be
+   requested. Pin the manifests to whatever version the cluster reports.
+3. **A funded Solana devnet keypair** — `solana-keygen new` + `solana airdrop 5 --url devnet`.
+4. **A non-rate-limited devnet RPC** — the one-time circuit upload sends a burst of transactions that a
+   free/public RPC will throttle. Use a paid endpoint (Helius/Triton/QuickNode) **or** the Arcium
+   localnet Docker (no devnet RPC at all). **This is the current blocker for the end-to-end loop.**
 
 ---
 
-## Phase A — Arcium toolchain (your machine)
+## Phase A — Arcium toolchain (Docker)
+
+Build the Arcium dev container (Ubuntu 24.04 + Rust 1.89 + Solana 2.3.0 + Anchor 0.32.1 + `arcium`
+0.10.4), then:
 
 ```bash
-# Build the Arcium dev container (full Dockerfile is in
-# .agents/skills/arcium-dev/cli-deployment.md — Ubuntu 24.04 + Rust 1.89 + Solana 2.3.0 +
-# Anchor 0.32.1 + arcium 0.6.3). Then:
 docker run -d --name shadowstate-dev \
   --ulimit nofile=1048576:1048576 \
   -v "$(pwd)":/app -v "$HOME/.config/solana":/root/.config/solana \
@@ -73,19 +70,19 @@ docker run -d --name shadowstate-dev \
   -p 8899:8899 -p 8900:8900 shadowstate-arcium-dev sleep infinity
 ```
 
-## Phase B — compile ✅ already done
+## Phase B — compile ✅ done
 
-The real Arcium project already exists at **`shadowstate_mxe/`** (created via `arcium init`, with the
-circuits in `encrypted-ixs/` and the gateway in `programs/shadowstate_mxe/`), and it **builds clean**:
+The Arcium project lives at **`shadowstate_mxe/`** (created via `arcium init`, circuits in
+`encrypted-ixs/`, gateway in `programs/shadowstate_mxe/`) and builds clean:
 
 ```bash
-cd shadowstate_mxe && arcium build      # → build/*.arcis + target/idl/shadowstate_mxe.json + the .so
+cd shadowstate_mxe && arcium build   # → build/*.arcis + target/idl/shadowstate_mxe.json + the .so
 ```
 
-In 0.10.4 the circuits are uploaded **on-chain** (no separate GitHub circuits repo) — the TS test does
-this via `uploadCircuit`. Skip straight to deploy.
+In 0.10.4 the circuits are uploaded **on-chain** (no separate circuits repo) — done once via the TS
+`uploadCircuit` helper.
 
-## Phase C — deploy the MXE gateway to devnet  ✅ already done
+## Phase C — deploy the MXE gateway ✅ done
 
 ```bash
 docker exec shadowstate-dev bash -c '
@@ -95,32 +92,40 @@ docker exec shadowstate-dev bash -c '
     --program-name shadowstate_arcium_gateway \
     --program-keypair target/deploy/shadowstate_arcium_gateway-keypair.json
 '
-# Then init each computation definition ONCE (init_book / ingest_order / clear_batch comp defs).
 ```
-**Paste me the deployed gateway program ID.**
+Deployed gateway: **`E3GFUytcsMFgYgwTrHoob1YvhB4UvqTzj4bFWzE5dNXe`** (MXE active, cluster 456).
 
-## Phase D — deploy the settlement program + set up a market
+## Phase D — deploy the settlement program ✅ done
 
 ```bash
-# Our pure-Pinocchio settlement program (built here, no Arcium toolchain needed):
 cargo build-sbf --manifest-path program/Cargo.toml --tools-version v1.52
 solana program deploy target/deploy/shadowstate_program.so --url devnet
-# → paste me the program ID; we set it in mpc-core/relay.rs + the gateway's market binding.
+```
+Deployed settlement: **`FP8riDGv8jrif5G8QfprfzPeNR8kQ3UUrpTp6EXByDVZ`**. The program ID is wired into
+`web/lib/constants.ts` and the relayer config.
 
-# Market setup (a script I'll provide): create a Token-2022 test-USDC mint, the vault + MM accounts,
-# InitializeMarket with the RELAYER key as settlement_authority (trusted path), DepositMmCollateral.
+## Phase E — upload circuits + open the book ⏳ blocked on RPC
+
+The remaining one-time job. Against a **non-rate-limited RPC**:
+
+```bash
+# 1. Register the 3 computation definitions (init_book / ingest_order / clear_batch)
+# 2. uploadCircuit for each .arcis blob (this is the burst the free RPC throttles)
+# 3. init_book — open the first encrypted batch book for (market, epoch)
 ```
 
-## Phase E — run the relayer service (I build this next)
+## Phase F — run the relayer service ⏳ to build
 
-A small service that: every ~1.2 s triggers the gateway's `clear_batch`, watches for the `BatchCleared`
-event, runs `mpc-core::relayer::clear()`, and submits `SubmitBatchTrusted`. (Triggering Arcium
-computations is naturally TypeScript via `@arcium-hq/client`; the deterministic settlement is our Rust
-`mpc-core`. I'll wire them.)
+A small always-on worker that every ~1.2 s triggers the gateway's `clear_batch`, watches for the
+`BatchCleared` event, runs `mpc-core::relayer::clear()`, and submits `SubmitBatchTrusted`. It exposes
+**no URL** — it needs only outbound RPC + the settlement-authority keypair + the two program IDs.
+(Triggering Arcium computations is TypeScript via `@arcium-hq/client`; the deterministic settlement is
+the Rust `mpc-core`.)
 
-## Phase F — the complete user-flow test
+## Phase G — end-to-end flow test
 
-A TypeScript e2e (`@arcium-hq/client` + our client) that proves the whole thing on devnet:
+A TypeScript e2e (`@arcium-hq/client` + the `client/` SDK) proving the whole thing on devnet:
+
 1. Alice deposits, places a **sealed** `BUY YES 100` → hidden in the MXE.
 2. Bob deposits, places a **sealed** `BUY NO 100` → hidden.
 3. Batch clears → they **match P2P at $0.50** (MM untouched). Assert: nobody could read the orders
@@ -130,17 +135,16 @@ A TypeScript e2e (`@arcium-hq/client` + our client) that proves the whole thing 
 
 ---
 
-## The remaining build work (I can do now / next)
+## Remaining build work
 
-| Piece | Who | Notes |
-|---|---|---|
-| Reconcile gateway vs generated IDL | me (needs your `arcium build` paste) | resolves the `// RECONCILE:` markers |
-| Market-setup script (mint/vault/MM/init) | me | runnable, no Arcium toolchain needed |
-| **Relayer service** (clear-trigger + settle loop) | me | TS trigger + Rust settle |
-| TypeScript **e2e flow test** | me | the Phase-F proof |
-| Minimal **client/CLI or web** order+deposit flow | me | so a real user can place an order |
-| Circuit **scale** (`BATCH_CAP 8 → N`) | me | before real volume |
-| Optimistic-oracle resolution (replace trusted resolver) | me | for trustless resolution |
+| Piece | Notes |
+|---|---|
+| **Circuit upload + comp-def init** | one-time; blocked only on a non-rate-limited RPC |
+| **Relayer service** (clear-trigger + settle loop) | TS trigger + Rust settle; not yet built into a runnable binary |
+| TypeScript **e2e flow test** | the Phase-G proof |
+| Circuit **scale** (`BATCH_CAP 8 → N`) | before real volume |
+| Optimistic-oracle resolution | replace the trusted resolver for trustless resolution |
+| `mm-gateway` live venue adapters | real Polymarket/Kalshi auth + symbols |
 
-**Nothing here is blocked on more design — it's compile + deploy + wire.** The blockers are all things
-only your Docker/devnet/Arcium environment can run; I make them turnkey and fix against your outputs.
+**Nothing here is blocked on more design** — it's upload + wire + run. The blockers are environmental
+(Docker/devnet/Arcium + a paid RPC), not architectural.

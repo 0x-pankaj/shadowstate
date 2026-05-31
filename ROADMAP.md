@@ -10,10 +10,12 @@ Arcium Docker environment + a devnet cluster (cannot be compiled/run here).
 - `protocol/` frozen wire contract · `program/` Pinocchio settlement (2-tier clearing, native committee
   verify, **full collateralization + resolution + winner payout**) · `mpc-core/` relayer + MPC *model* ·
   `mm-gateway/` MM relayer (hedge/risk/portal) · `shadowstate_mxe/` the real Arcium 0.10.4 project
-  (`encrypted-ixs/` Arcis circuits + Anchor MXE gateway). **110 Rust tests green, 0 build warnings.**
-- Honest status: the Arcium circuits **compile** and the gateway is **deployed + MXE-active on devnet**
-  (cluster 456); the end-to-end MPC run is pending a non-rate-limited RPC. The single-process `mpc-core`
-  remains the offline *model*. Privacy target = **confidential order flow, positions public**.
+  (`encrypted-ixs/` Arcis circuits + Anchor MXE gateway). **108 Rust tests green, 0 build warnings.**
+- Honest status: **both programs are deployed on devnet** — the Pinocchio settlement engine
+  (`FP8ri…ByDVZ`) and the Arcium gateway (`E3GF…dNXe`, MXE-active, cluster 456). The Arcium circuits
+  **compile**; the end-to-end MPC run is pending the one-time on-chain circuit upload + the relayer
+  service (gated on a non-rate-limited RPC). The single-process `mpc-core` remains the offline *model*.
+  Privacy target = **confidential order flow, positions public**.
 
 ---
 
@@ -27,8 +29,8 @@ The minimal system that actually matches privately on Arcium and settles + resol
 | 1.2 | **Client** — seal an order (RescueCipher) → gateway `ingest_order` ✅ **written** | TS (`@arcium-hq/client`) | ⚠️ to-spec (toolchain) |
 | 1.3 | `program/` **trusted-gateway authority mode** — `SubmitBatchTrusted` (disc 10), settlement authority signs, committee stays fallback ✅ **done** | `program/` | ✅ done |
 | 1.4 | `arcium build` circuits + gateway ✅ **done** (deployed to devnet `E3GF…dNXe`) | `shadowstate_mxe` | ✅ done |
-| 1.5 | **Devnet deploy** + init comp-defs + attach cluster (offset 456) | ops | ⚠️ toolchain |
-| 1.6 | **TypeScript e2e test** — seal → ingest → clear → relay → settle → resolve → payout, on devnet | TS | ⚠️ toolchain |
+| 1.5 | **Devnet deploy** — both programs live (`FP8ri…` settlement + `E3GF…` gateway, cluster 456) ✅ **done** | ops | ✅ done |
+| 1.6 | **Circuit upload + comp-def init** + **relayer service** + TS e2e (seal → clear → settle → resolve → payout) | ops + TS | ⏳ blocked on non-rate-limited RPC |
 
 Exit criteria: a real order is hidden until batch close, matched in the MXE, and settled + resolved
 on-chain, end to end on devnet.
